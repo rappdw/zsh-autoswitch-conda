@@ -7,13 +7,13 @@ BOLD="\e[1m"
 NORMAL="\e[0m"
 
 
-if ! type "virtualenv" > /dev/null; then
+if ! type "conda" > /dev/null; then
     export DISABLE_AUTOSWITCH_VENV="1"
     printf "${BOLD}${RED}"
-    printf "zsh-autoswitch-virtualenv requires virtualenv to be installed!\n\n"
+    printf "zsh-autoswitch-conda requires conda to be installed!\n\n"
     printf "${NORMAL}"
     printf "If this is already installed but you are still seeing this message, \n"
-    printf "then make sure the ${BOLD}virtualenv${NORMAL} command is in your PATH.\n"
+    printf "then make sure that conda is setup prior to loading this plugin (for conda) \n"
     printf "\n"
 fi
 
@@ -31,6 +31,8 @@ function _python_version() {
     if [[ -f "$PYTHON_BIN" ]] then
         # For some reason python --version writes to stderr
         printf "%s" "$($PYTHON_BIN --version 2>&1)"
+    elif type "python" > /dev/null; then
+        printf "%s" "$(python --version 2>&1)"
     else
         printf "unknown"
     fi
@@ -57,11 +59,14 @@ function _maybeworkon() {
 
     if [[ -z "$VIRTUAL_ENV" || "$venv_name" != "$(basename $VIRTUAL_ENV)" ]]; then
 
-        if [[ ! -d "$venv_dir" ]]; then
-            printf "Unable to find ${PURPLE}$venv_name${NORMAL} virtualenv\n"
-            printf "If the issue persists run ${PURPLE}rmvenv && mkvenv${NORMAL} in this directory\n"
-            return
-        fi
+#        if [[ ! -d "$venv_dir" ]]; then
+#            printf "Unable to find ${PURPLE}$venv_name${NORMAL} virtualenv\n"
+#            printf "If the issue persists run ${PURPLE}rmvenv && mkvenv${NORMAL} in this directory\n"
+#            return
+#        fi
+
+        # Much faster to source the activate file directly rather than use the `workon` command
+        conda activate "$venv_name"
 
         local py_version="$(_python_version "$venv_dir/bin/python")"
         local message="${AUTOSWITCH_MESSAGE_FORMAT:-"$DEFAULT_MESSAGE_FORMAT"}"
@@ -70,8 +75,6 @@ function _maybeworkon() {
         message="${message//\%py_version/$py_version}"
         _autoswitch_message "${message}\n"
 
-        # Much faster to source the activate file directly rather than use the `workon` command
-        source "$venv_dir/bin/activate"
     fi
 }
 
@@ -113,11 +116,11 @@ function check_venv()
         fi
 
         if [[ "$file_owner" != "$(id -u)" ]]; then
-            printf "AUTOSWITCH WARNING: Virtualenv will not be activated\n\n"
+            printf "AUTOSWITCH WARNING: Conda env will not be activated\n\n"
             printf "Reason: Found a .venv file but it is not owned by the current user\n"
             printf "Change ownership of ${PURPLE}$venv_path${NORMAL} to ${PURPLE}'$USER'${NORMAL} to fix this\n"
         elif ! [[ "$file_permissions" =~ ^[64][04][04]$ ]]; then
-            printf "AUTOSWITCH WARNING: Virtualenv will not be activated\n\n"
+            printf "AUTOSWITCH WARNING: Conda env will not be activated\n\n"
             printf "Reason: Found a .venv file with weak permission settings ($file_permissions).\n"
             printf "Run the following command to fix this: ${PURPLE}\"chmod 600 $venv_path\"${NORMAL}\n"
         else
@@ -129,12 +132,8 @@ function check_venv()
     fi
 
     if [[ -n "$SWITCH_TO" ]]; then
-        _maybeworkon "$(_virtual_env_dir "$SWITCH_TO")" "virtualenv"
+        _maybeworkon "$(_virtual_env_dir "$SWITCH_TO")" "conda"
 
-        # check if Pipfile exists rather than invoking pipenv as it is slow
-    elif [[ -a "Pipfile" ]] && type "pipenv" > /dev/null; then
-        venv_path="$(PIPENV_IGNORE_VIRTUALENVS=1 pipenv --venv)"
-        _maybeworkon "$venv_path" "pipenv"
     else
         _default_venv
     fi
@@ -144,10 +143,10 @@ function check_venv()
 function _default_venv()
 {
     if [[ -n "$AUTOSWITCH_DEFAULTENV" ]]; then
-        _maybeworkon "$(_virtual_env_dir "$AUTOSWITCH_DEFAULTENV")" "virtualenv"
-    elif [[ -n "$VIRTUAL_ENV" ]]; then
-        _autoswitch_message "Deactivating: ${BOLD}${PURPLE}%s${NORMAL}\n" "$(basename "$VIRTUAL_ENV")"
-        deactivate
+        _maybeworkon "$(_virtual_env_dir "$AUTOSWITCH_DEFAULTENV")" "conda"
+    elif [[ "$CONDA_DEFAULT_ENV" != "base" ]]; then
+        _autoswitch_message "Deactivating: ${BOLD}${PURPLE}%s${NORMAL}\n" "$CONDA_DEFAULT_ENV"
+        conda deactivate
     fi
 }
 
@@ -167,11 +166,7 @@ function rmvenv()
         fi
 
         printf "Removing ${PURPLE}%s${NORMAL}...\n" "$venv_name"
-        # Using explicit paths to avoid any alias/function interference.
-        # rm should always be found in this location according to
-        # https://refspecs.linuxfoundation.org/FHS_3.0/fhs/ch03s04.html
-        # https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge/
-        /bin/rm -rf "$(_virtual_env_dir "$venv_name")"
+        conda env remove --name "$venv_name"
         /bin/rm ".venv"
     else
         printf "No .venv file in the current directory!\n"
@@ -187,30 +182,34 @@ function mkvenv()
     else
         local venv_name="$(basename $PWD)"
 
-        printf "Creating ${PURPLE}%s${NONE} virtualenv\n" "$venv_name"
+        printf "Creating ${PURPLE}%s${NONE} conda environment\n" "$venv_name"
 
         # Copy parameters variable so that we can mutate it
         params=("${@[@]}")
+        cparams=""
 
-        if [[ -n "$AUTOSWITCH_DEFAULT_PYTHON" && ${params[(I)--python*]} -eq 0 ]]; then
-            params+="--python=$AUTOSWITCH_DEFAULT_PYTHON"
+        if [[ -f "$PWD/requirements.txt" || -f "$PWD/setup.py" ]]; then
+            cparams+="python=$AUTOSWITCH_DEFAULT_PYTHON"
+        elif [[ -n "$AUTOSWITCH_DEFAULT_PYTHON" && ${params[(I)--python*]} -eq 0 ]]; then
+            cparams+="python=$AUTOSWITCH_DEFAULT_PYTHON"
         fi
 
         if [[ ${params[(I)--verbose]} -eq 0 ]]; then
-            virtualenv $params "$(_virtual_env_dir "$venv_name")"
+            echo "conda create --name "$venv_name" $cparams"
+            conda create --name "$venv_name" $cparams
         else
-            virtualenv $params "$(_virtual_env_dir "$venv_name")" > /dev/null
+            echo "conda create --name "$venv_name" --yes $cparams > /dev/null"
+            conda create --name "$venv_name" --yes $cparams > /dev/null
         fi
 
         printf "$venv_name\n" > ".venv"
         chmod 600 .venv
 
-        _maybeworkon "$(_virtual_env_dir "$venv_name")" "virtualenv"
+        _maybeworkon "$(_virtual_env_dir "$venv_name")" "conda"
 
         install_requirements
     fi
 }
-
 
 function install_requirements() {
     if [[ -f "$AUTOSWITCH_DEFAULT_REQUIREMENTS" ]]; then
@@ -246,22 +245,38 @@ function install_requirements() {
             pip install -r "$requirements"
         fi
     done
+
+    install_conda_requirements
 }
 
+function install_conda_requirements()
+{
+    # Sample yml file can be found at
+    # https://github.com/vithursant/deep-learning-conda-envs/blob/master/tf-py3p6-env.yml
+    for requirements in *requirements.yml
+    do
+      printf "Found a %s file. Install using conda? [y/N]: " "$requirements"
+      read ans
 
-function enable_autoswitch_virtualenv() {
+      if [[ "$ans" = "y" || "$ans" = "Y" ]]; then
+        conda env update -f "$requirements"
+      fi
+    done
+}
+
+function enable_autoswitch_conda() {
     autoload -Uz add-zsh-hook
-    disable_autoswitch_virtualenv
+    disable_autoswitch_conda
     add-zsh-hook chpwd check_venv
 }
 
 
-function disable_autoswitch_virtualenv() {
+function disable_autoswitch_conda() {
     add-zsh-hook -D chpwd check_venv
 }
 
 
 if [[ -z "$DISABLE_AUTOSWITCH_VENV" ]]; then
-    enable_autoswitch_virtualenv
+    enable_autoswitch_conda
     check_venv
 fi
