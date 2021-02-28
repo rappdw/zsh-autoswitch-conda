@@ -68,6 +68,8 @@ Then add this line to your ``.zshrc``
 ::
 
     plugins=(autoswitch_conda $plugins)
+    
+With latest conda installations placing conda initialization at the end of your .zshrc file, you'll need to move both your plugins and intialization of zsh to the bottom of your .zshrc file
 
 **Manual Installation**
 
