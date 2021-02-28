@@ -75,7 +75,7 @@ Source the plugin shell script in your `~/.zshrc` profile. For example
 
 ::
 
-   source $HOME/zsh-autoswitch-conda/autoswitch_conda.plugin.zsh
+   source $ZSH_CUSTOM/plugins/autoswitch_conda/autoswitch_conda.plugin.zsh
 
 
 Commands
