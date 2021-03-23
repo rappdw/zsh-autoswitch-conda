@@ -3,7 +3,7 @@
 @setup {
 
     export DISABLE_AUTOSWITCH_VENV="1"
-    load "../autoswitch_virtualenv.plugin.zsh"
+    load "../autoswitch_conda.plugin.zsh"
     unset AUTOSWITCH_DEFAULT_REQUIREMENTS
     TARGET="$(mktemp -d)"
     cd "$TARGET"
@@ -23,22 +23,22 @@
 
 
 @test 'rmvenv - removes .venv if present' {
-    # lightweight simulation of creating a virtualenv
-    mkdir -p "$HOME/.virtualenvs/12345"
+    # lightweight creation of a conda env
+    conda create --name 12345 --no-default-packages --yes -q >/dev/null 2>&1
 
     echo "12345" > .venv
 
     run rmvenv
 
     assert $state equals 0
-    assert "$output" same_as "Removing \e[35m12345\e[0m..."
+    assert "$lines[2]" same_as "Remove all packages in environment $CONDA_PREFIX/envs/12345:"
     test ! -f .venv
-    test ! -d "$HOME/.virtualenvs/12345"
+    test ! -d "$CONDA_PREFIX/envs/12345"
 }
 
 @test 'rmvenv - removes .venv if present with function' {
-    # lightweight simulation of creating a virtualenv
-    mkdir -p "$HOME/.virtualenvs/54321"
+    # lightweight creation of a conda env
+    conda create --name 54321 --no-default-packages --yes -q >/dev/null 2>&1
 
     echo "54321" > .venv
 
@@ -48,19 +48,19 @@
     run rmvenv
 
     assert $state equals 0
-    assert "$output" same_as "Removing \e[35m54321\e[0m..."
+    assert "$lines[2]" same_as "Remove all packages in environment $CONDA_PREFIX/envs/54321:"
     test ! -f .venv
-    test ! -d "$HOME/.virtualenvs/54321"
+    test ! -d "$CONDA_PREFIX/envs/54321"
 }
 
 @test 'rmvenv - removes .venv and deactivates if currently active' {
     test_venv="$(basename $PWD)"
-    run mkvenv
+    run mkvenv --yes --quiet --no-default-packages
 
     run rmvenv
 
     assert $state equals 0
-    assert "$output" same_as "Removing \e[35m$test_venv\e[0m..."
+    assert "$lines[2]" same_as "Remove all packages in environment $CONDA_PREFIX/envs/$test_venv:"
     test ! -f .venv
-    test ! -d "$HOME/.virtualenvs/$test_venv"
+    test ! -d "$CONDA_PREFIX/envs/$test_venv"
 }

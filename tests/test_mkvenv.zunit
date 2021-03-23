@@ -3,7 +3,8 @@
 @setup {
 
     export DISABLE_AUTOSWITCH_VENV="1"
-    load "../autoswitch_virtualenv.plugin.zsh"
+    PYTHON_VERSION="$(python --version 2>&1)"
+    load "../autoswitch_conda.plugin.zsh"
     unset AUTOSWITCH_DEFAULT_REQUIREMENTS
     TARGET="$(mktemp -d)"
     cd "$TARGET"
@@ -24,14 +25,19 @@
 
 
 @test 'mkvenv - creates .venv' {
+    # mock conda function to test its inputs
+    function conda {
+        echo conda $@
+    }
+
     mkdir myproject
     cd myproject
 
-    run mkvenv
+    run mkvenv --yes --quiet --no-default-packages
 
     assert $status equals 0
     assert "$TARGET/myproject/.venv" exists
-    # assert "$lines[1]" same_as "Creating \e[35mmyproject\e[0m virtualenv"
+    assert "$lines[1]" same_as "Creating \e[35mmyproject\e[0m conda environment"
 
     run cat "$TARGET/myproject/.venv"
 
@@ -40,9 +46,9 @@
 }
 
 @test 'mkvenv - uses default python if set and not specified' {
-    # mock virtualenv function to test its inputs
-    function virtualenv {
-        echo virtualenv $@
+    # mock conda function to test its inputs
+    function conda {
+        echo conda $@
     }
 
     mkdir myproject
@@ -54,7 +60,7 @@
     assert $status equals 0
     assert "$TARGET/myproject/.venv" exists
     # Assert mock output
-    assert "$lines[2]" same_as "virtualenv --python=python_foo $HOME/.virtualenvs/myproject"
+    assert "$lines[2]" same_as "conda create --name myproject python=python_foo"
 
     run cat "$TARGET/myproject/.venv"
 
@@ -64,8 +70,8 @@
 
 @test 'mkvenv - uses specified python if default set' {
     # mock virtualenv function to test its inputs
-    function virtualenv {
-        echo virtualenv $@
+    function conda {
+        echo conda $@
     }
 
     mkdir myproject
@@ -77,7 +83,7 @@
     assert $status equals 0
     assert "$TARGET/myproject/.venv" exists
     # Assert mock output
-    assert "$lines[2]" same_as "virtualenv --python=python_bar $HOME/.virtualenvs/myproject"
+    assert "$lines[2]" same_as "conda create --name myproject --python=python_bar"
 
     run cat "$TARGET/myproject/.venv"
 

@@ -2,7 +2,7 @@
 
 
 @setup {
-    TEST_VIRTUALENV="$HOME/.virtualenvs/foobar/"
+    TEST_VIRTUALENV="foobar"
 
     if [[ ! -d "$TEST_VIRTUALENV" ]]; then
         echo "Creating test virtualenv"
@@ -10,10 +10,12 @@
     fi
 
     unset AUTOSWITCH_MESSAGE_FORMAT
+    conda activate foobar
     PYTHON_VERSION="$(python3 --version 2>&1)"
+    conda deactivate
 
     export DISABLE_AUTOSWITCH_VENV="1"
-    load "../autoswitch_virtualenv.plugin.zsh"
+    load "../autoswitch_conda.plugin.zsh"
     TARGET="$(mktemp -d)"
 }
 
@@ -24,10 +26,10 @@
 @test '_maybeworkon - error message if virtualenv can not be found' {
     VIRTUAL_ENV=""
 
-    run _maybeworkon $HOME/.virtualenvs/idontexist virtualenv
+    run _maybeworkon idontexist conda
 
     assert $state equals 0
-    assert "${lines[1]}" same_as "Unable to find \e[35midontexist\e[0m virtualenv"
+    assert "${lines[1]}" same_as "Unable to find \e[35midontexist\e[0m conda env"
     assert "${lines[2]}" same_as "If the issue persists run \e[35mrmvenv && mkvenv\e[0m in this directory"
 }
 
@@ -35,10 +37,10 @@
 @test '_maybeworkon - switches virtualenv if nothing is activated' {
     VIRTUAL_ENV=""
 
-    run _maybeworkon "$TEST_VIRTUALENV" virtualenv
+    run _maybeworkon "$TEST_VIRTUALENV" conda
 
     assert $state equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }
 
 @test '_maybeworkon - custom message' {
@@ -55,10 +57,10 @@
     VIRTUAL_ENV=""
     LANG="ASCII"
 
-    run _maybeworkon "$TEST_VIRTUALENV" virtualenv
+    run _maybeworkon "$TEST_VIRTUALENV" conda
 
     assert $state equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[$PYTHON_VERSION]\e[0m"
 }
 
 @test '_maybeworkon - switches virtualenv if current virtualenv is different' {
@@ -67,7 +69,7 @@
     run _maybeworkon "$TEST_VIRTUALENV" virtualfoo
 
     assert $state equals 0
-    assert "$output" contains "Switching virtualfoo: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" contains "Switching virtualfoo env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }
 
 @test '_maybeworkon - switches virtualenv if current virtualenv is different (silent)' {

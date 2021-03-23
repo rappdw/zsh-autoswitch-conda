@@ -1,0 +1,5 @@
+#!/usr/bin/env zsh
+
+source $CONDA_PREFIX/etc/profile.d/conda.sh
+[ ! -d "$CONDA_PREFIX/envs/foobar" ] && conda create --name foobar --yes -q python
+

@@ -1,18 +1,18 @@
 #!/usr/bin/env zunit
 
 @setup {
-    if [[ ! -d "$HOME/.virtualenvs/foobar/" ]]; then
-        echo "Creating test virtualenv"
-        run python -m virtualenv "$HOME/.virtualenvs/foobar" --python=python3
-    fi
     unset VIRTUAL_ENV
     unset AUTOSWITCH_MESSAGE_FORMAT
-    PYTHON_VERSION="$(python3 --version)"
+    . $CONDA_PREFIX/etc/profile.d/conda.sh
+    conda activate foobar
+    PYTHON_VERSION="$(python --version 2>&1)"
+    conda deactivate
+
 }
 
 @test 'correct version exported' {
     unset AUTOSWITCH_DEFAULTENV
-    load ../autoswitch_virtualenv.plugin.zsh
+    load ../autoswitch_conda.plugin.zsh
 
     git_version="$(git tag --list | sort -V | tail -1)"
     git tag --list
@@ -25,7 +25,7 @@
 @test 'plugin - does nothing on load if no default set' {
     unset AUTOSWITCH_DEFAULTENV
 
-    run load ../autoswitch_virtualenv.plugin.zsh
+    run load ../autoswitch_conda.plugin.zsh
 
     assert $status equals 0
     assert "$output" is_empty
@@ -33,15 +33,15 @@
 
 @test 'plugin - runs default env on load' {
     AUTOSWITCH_DEFAULTENV="foobar"
-    run load ../autoswitch_virtualenv.plugin.zsh
+    run load ../autoswitch_conda.plugin.zsh
 
     assert $status equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }
 
 @test 'plugin - does nothing if switching to directory without .venv' {
     unset AUTOSWITCH_DEFAULTENV
-    load ../autoswitch_virtualenv.plugin.zsh
+    load ../autoswitch_conda.plugin.zsh
 
     TEMP_DIR="$(mktemp -d)"
 
@@ -53,7 +53,7 @@
 
 @test 'plugin - switches env when .venv found' {
     unset AUTOSWITCH_DEFAULTENV
-    load ../autoswitch_virtualenv.plugin.zsh
+    load ../autoswitch_conda.plugin.zsh
 
     TEMP_DIR="$(mktemp -d)"
     echo "foobar" > "$TEMP_DIR/.venv"
@@ -62,7 +62,7 @@
     run cd "$TEMP_DIR"
 
     assert $status equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 
     mkdir "$TEMP_DIR/foo"
 
@@ -70,5 +70,5 @@
     run cd "$TEMP_DIR/foo"
 
     assert $status equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }

@@ -1,28 +1,22 @@
 #!/usr/bin/env zunit
 
 @setup {
-
-    if [[ ! -d "$HOME/.virtualenvs/foobar/" ]]; then
-        echo "Creating test virtualenv"
-        run python -m virtualenv "$HOME/.virtualenvs/foobar" --python=python3
-    fi
-    if [[ ! -d "$HOME/.virtualenvs/foodefault/" ]]; then
-        echo "Creating default test virtualenv"
-        run python -m virtualenv "$HOME/.virtualenvs/foodefault" --python=python3
-    fi
-
     unset AUTOSWITCH_MESSAGE_FORMAT
-    PYTHON_VERSION="$(python3 --version 2>&1)"
 
     export DISABLE_AUTOSWITCH_VENV="1"
-    load "../autoswitch_virtualenv.plugin.zsh"
+
+    conda activate foobar
+    PYTHON_VERSION="$(python --version 2>&1)"
+    conda deactivate
+
+    load "../autoswitch_conda.plugin.zsh"
+
     TARGET="$(mktemp -d)"
 }
 
 
 @teardown {
     rm -rf "$TARGET"
-    rm -rf Pipfile
 }
 
 @test 'check_venv - Displays message on project detection (requirements.txt)' {
@@ -66,7 +60,7 @@
     run check_venv
 
     assert $status equals 0
-    assert "$lines[1]" same_as "AUTOSWITCH WARNING: Virtualenv will not be activated"
+    assert "$lines[1]" same_as "AUTOSWITCH WARNING: Conda env will not be activated"
     assert "$lines[2]" is_empty
     assert "$lines[3]" same_as "Reason: Found a .venv file with weak permission settings (620)."
     assert "$lines[4]" same_as "Run the following command to fix this: \e[35m\"chmod 600 $TARGET/.venv\"\e[0m"
@@ -82,7 +76,7 @@
     run check_venv
 
     assert $status equals 0
-    assert "$lines[1]" same_as "AUTOSWITCH WARNING: Virtualenv will not be activated"
+    assert "$lines[1]" same_as "AUTOSWITCH WARNING: Conda env will not be activated"
     assert "$lines[2]" is_empty
     assert "$lines[3]" same_as "Reason: Found a .venv file with weak permission settings (622)."
     assert "$lines[4]" same_as "Run the following command to fix this: \e[35m\"chmod 600 $TARGET/.venv\"\e[0m"
@@ -99,7 +93,7 @@
     run check_venv
 
     assert $status equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }
 
 @test 'check_venv - No security warning for readable by group permission' {
@@ -113,7 +107,7 @@
     run check_venv
 
     assert $status equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }
 
 @test 'check_venv - No security warning for readable only by owner permission' {
@@ -126,48 +120,18 @@
     run check_venv
 
     assert $status equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }
 
 
 @test 'check_venv - go to default if .venv unavailable' {
     PWD="$TARGET"
-    AUTOSWITCH_DEFAULTENV="foodefault"
+    AUTOSWITCH_DEFAULTENV="foobar"
 
     run check_venv
 
     assert $status equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoodefault\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
-}
-
-
-@test 'check_venv - activate if .venv unavailable but pipenv available' {
-    PWD="$TARGET"
-    VIRTUAL_ENV="foo"
-    touch "Pipfile"
-
-    function pipenv {
-        echo "$HOME/.virtualenvs/foobar"
-    }
-
-    run check_venv
-
-    assert $status equals 0
-    assert "$output" same_as "Switching pipenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
-}
-
-
-@test 'check_venv - deactivate if neither .venv nor pipenv available' {
-    PWD="$TARGET"
-    VIRTUAL_ENV="foo"
-    unset AUTOSWITCH_DEFAULTENV
-    function deactivate {
-    }
-
-    run check_venv
-
-    assert $status equals 0
-    assert "$output" same_as "Deactivating: \e[1m\e[35mfoo\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }
 
 
@@ -180,5 +144,5 @@
     run check_venv
 
     assert $status equals 0
-    assert "$output" same_as "Switching virtualenv: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
+    assert "$output" same_as "Switching conda env: \e[1m\e[35mfoobar\e[0m \e[32m[🐍$PYTHON_VERSION]\e[0m"
 }

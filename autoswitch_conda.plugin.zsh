@@ -18,14 +18,6 @@ if ! type "conda" > /dev/null; then
 fi
 
 
-function _virtual_env_dir() {
-    local venv_name="$1"
-    local VIRTUAL_ENV_DIR="${AUTOSWITCH_VIRTUAL_ENV_DIR:-$HOME/.virtualenvs}"
-    mkdir -p "$VIRTUAL_ENV_DIR"
-    printf "%s/%s" "$VIRTUAL_ENV_DIR" "$venv_name"
-}
-
-
 function _python_version() {
     PYTHON_BIN="$1"
     if [[ -f "$PYTHON_BIN" ]] then
@@ -47,11 +39,11 @@ function _autoswitch_message() {
 
 
 function _maybeworkon() {
-    local venv_dir="$1"
+    local venv_name="$1"
     local venv_type="$2"
-    local venv_name="$(basename $venv_dir)"
+    local venv_dir="$CONDA_PREFIX/envs/$venv_name"
 
-    local DEFAULT_MESSAGE_FORMAT="Switching %venv_type: ${BOLD}${PURPLE}%venv_name${NORMAL} ${GREEN}[🐍%py_version]${NORMAL}"
+    local DEFAULT_MESSAGE_FORMAT="Switching %venv_type env: ${BOLD}${PURPLE}%venv_name${NORMAL} ${GREEN}[🐍%py_version]${NORMAL}"
     if [[ "$LANG" != *".UTF-8" ]]; then
         # Remove multibyte characters if the terminal does not support utf-8
         DEFAULT_MESSAGE_FORMAT="${DEFAULT_MESSAGE_FORMAT/🐍/}"
@@ -59,13 +51,13 @@ function _maybeworkon() {
 
     if [[ -z "$VIRTUAL_ENV" || "$venv_name" != "$(basename $VIRTUAL_ENV)" ]]; then
 
-#        if [[ ! -d "$venv_dir" ]]; then
-#            printf "Unable to find ${PURPLE}$venv_name${NORMAL} virtualenv\n"
-#            printf "If the issue persists run ${PURPLE}rmvenv && mkvenv${NORMAL} in this directory\n"
-#            return
-#        fi
+        # TODO: base env won't be in the envs directory
+        if [[ ! -d "$venv_dir" ]]; then
+            printf "Unable to find ${PURPLE}$venv_name${NORMAL} conda env\n"
+            printf "If the issue persists run ${PURPLE}rmvenv && mkvenv${NORMAL} in this directory\n"
+            return
+        fi
 
-        # Much faster to source the activate file directly rather than use the `workon` command
         conda activate "$venv_name"
 
         local py_version="$(_python_version "$venv_dir/bin/python")"
@@ -97,7 +89,7 @@ function _check_venv_path()
 }
 
 
-# Automatically switch virtualenv when .venv file detected
+# Automatically switch conda env when .venv file detected
 function check_venv()
 {
     local SWITCH_TO=""
@@ -132,7 +124,7 @@ function check_venv()
     fi
 
     if [[ -n "$SWITCH_TO" ]]; then
-        _maybeworkon "$(_virtual_env_dir "$SWITCH_TO")" "conda"
+        _maybeworkon "$SWITCH_TO" "conda"
 
     else
         _default_venv
@@ -143,7 +135,7 @@ function check_venv()
 function _default_venv()
 {
     if [[ -n "$AUTOSWITCH_DEFAULTENV" ]]; then
-        _maybeworkon "$(_virtual_env_dir "$AUTOSWITCH_DEFAULTENV")" "conda"
+        _maybeworkon "$AUTOSWITCH_DEFAULTENV" "conda"
     elif [[ "$CONDA_DEFAULT_ENV" != "base" ]]; then
         _autoswitch_message "Deactivating: ${BOLD}${PURPLE}%s${NORMAL}\n" "$CONDA_DEFAULT_ENV"
         conda deactivate
@@ -158,15 +150,15 @@ function rmvenv()
         local venv_name="$(<.venv)"
 
         # detect if we need to switch virtualenv first
-        if [[ -n "$VIRTUAL_ENV" ]]; then
-            local current_venv="$(basename $VIRTUAL_ENV)"
+        if [[ -n "$CONDA_DEFAULT_ENV" ]]; then
+            local current_venv="$CONDA_DEFAULT_ENV"
             if [[ "$current_venv" = "$venv_name" ]]; then
                 _default_venv
             fi
         fi
 
-        printf "Removing ${PURPLE}%s${NORMAL}...\n" "$venv_name"
-        conda env remove --name "$venv_name"
+#        printf "Removing ${PURPLE}%s${NORMAL}...\n" "$venv_name"
+        conda env remove --name "$venv_name" --yes
         /bin/rm ".venv"
     else
         printf "No .venv file in the current directory!\n"
@@ -174,7 +166,7 @@ function rmvenv()
 }
 
 
-# helper function to create a virtual environment for the current directory
+# helper function to create a conda environment for the current directory
 function mkvenv()
 {
     if [[ -f ".venv" ]]; then
@@ -182,30 +174,26 @@ function mkvenv()
     else
         local venv_name="$(basename $PWD)"
 
-        printf "Creating ${PURPLE}%s${NONE} conda environment\n" "$venv_name"
+        printf "Creating ${PURPLE}%s${NORMAL} conda environment\n" "$venv_name"
 
         # Copy parameters variable so that we can mutate it
         params=("${@[@]}")
-        cparams=""
-
-        if [[ -f "$PWD/requirements.txt" || -f "$PWD/setup.py" ]]; then
-            cparams+="python=$AUTOSWITCH_DEFAULT_PYTHON"
-        elif [[ -n "$AUTOSWITCH_DEFAULT_PYTHON" && ${params[(I)--python*]} -eq 0 ]]; then
-            cparams+="python=$AUTOSWITCH_DEFAULT_PYTHON"
+        if [[ -n "$AUTOSWITCH_DEFAULT_PYTHON" && ${params[(I)--python*]} -eq 0 && ${params[(I)--no-default-packages]} -eq 0 ]]; then
+            params+="python=$AUTOSWITCH_DEFAULT_PYTHON"
         fi
 
         if [[ ${params[(I)--verbose]} -eq 0 ]]; then
-            echo "conda create --name "$venv_name" $cparams"
-            conda create --name "$venv_name" $cparams
+            echo "conda create --name "$venv_name" $params"
+            conda create --name "$venv_name" $params
         else
-            echo "conda create --name "$venv_name" --yes $cparams > /dev/null"
-            conda create --name "$venv_name" --yes $cparams > /dev/null
+            echo "conda create --name "$venv_name" -q $params > /dev/null"
+            conda create --name "$venv_name" -q $params > /dev/null
         fi
 
         printf "$venv_name\n" > ".venv"
         chmod 600 .venv
 
-        _maybeworkon "$(_virtual_env_dir "$venv_name")" "conda"
+        _maybeworkon "$venv_name" "conda"
 
         install_requirements
     fi
