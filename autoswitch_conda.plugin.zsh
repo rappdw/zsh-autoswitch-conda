@@ -20,7 +20,7 @@ fi
 
 function _python_version() {
     PYTHON_BIN="$1"
-    if [[ -f "$PYTHON_BIN" ]] then
+    if [[ -f "$PYTHON_BIN" ]]; then
         # For some reason python --version writes to stderr
         printf "%s" "$($PYTHON_BIN --version 2>&1)"
     elif type "python" > /dev/null; then
@@ -179,15 +179,15 @@ function mkvenv()
         # Copy parameters variable so that we can mutate it
         params=("${@[@]}")
         if [[ -n "$AUTOSWITCH_DEFAULT_PYTHON" && ${params[(I)--python*]} -eq 0 && ${params[(I)--no-default-packages]} -eq 0 ]]; then
-            params+="python=$AUTOSWITCH_DEFAULT_PYTHON"
+            params+=("python=$AUTOSWITCH_DEFAULT_PYTHON")
         fi
 
         if [[ ${params[(I)--verbose]} -eq 0 ]]; then
-            echo "conda create --name "$venv_name" $params"
-            conda create --name "$venv_name" $params
+            echo "conda create --name $venv_name $params"
+            conda create --name $venv_name $params
         else
-            echo "conda create --name "$venv_name" -q $params > /dev/null"
-            conda create --name "$venv_name" -q $params > /dev/null
+            echo "conda create --name $venv_name -q $params > /dev/null"
+            conda create --name $venv_name -q $params > /dev/null
         fi
 
         printf "$venv_name\n" > ".venv"
