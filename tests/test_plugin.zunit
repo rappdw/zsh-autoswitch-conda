@@ -1,13 +1,10 @@
 #!/usr/bin/env zunit
 
 @setup {
-    unset VIRTUAL_ENV
     unset AUTOSWITCH_MESSAGE_FORMAT
-    . $CONDA_PREFIX/etc/profile.d/conda.sh
     conda activate foobar
     PYTHON_VERSION="$(python --version 2>&1)"
     conda deactivate
-
 }
 
 @test 'correct version exported' {

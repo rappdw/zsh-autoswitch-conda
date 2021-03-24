@@ -1,0 +1,32 @@
+#!/usr/bin/env zunit
+
+@setup {
+    export DISABLE_AUTOSWITCH_VENV="1"
+    PYTHON_VERSION="$(python --version 2>&1)"
+    load "../autoswitch_conda.plugin.zsh"
+    unset AUTOSWITCH_DEFAULT_REQUIREMENTS
+    TARGET="$(mktemp -d)"
+    cd "$TARGET"
+    CONDA_ENV="foobarbaz"
+    mkdir -p "$HOME/.config/pip"
+    touch "$HOME/.config/pip/pip.conf.$CONDA_ENV"
+}
+
+@teardown {
+    rm -rf "$TARGET"
+    rm "$HOME/.config/pip/pip.conf.$CONDA_ENV"
+}
+
+@test 'mkvenv - with custom pip.conf' {
+    mkdir $CONDA_ENV
+    cd $CONDA_ENV
+
+    run mkvenv --pip $CONDA_ENV --yes --quiet --no-default-packages
+
+    assert $status equals 0
+    assert "$CONDA_PREFIX/envs/$CONDA_ENV/pip/pip.conf" exists
+
+    run rmvenv
+    assert $status equals 0
+}
+

@@ -1,4 +1,4 @@
-export AUTOSWITCH_VERSION='1.10.0'
+export AUTOSWITCH_VERSION='2.0.0'
 
 RED="\e[31m"
 GREEN="\e[32m"
@@ -182,6 +182,12 @@ function mkvenv()
             params+=("python=$AUTOSWITCH_DEFAULT_PYTHON")
         fi
 
+        # parse out the custom pip conf file name if it exists
+        zparseopts -D -E -pip:=pip_conf
+        if [[ ! -z "$pip_conf" ]]; then
+          pip_conf=${pip_conf[-1]}
+        fi
+
         if [[ ${params[(I)--verbose]} -eq 0 ]]; then
             echo "conda create --name $venv_name $params"
             conda create --name $venv_name $params
@@ -192,6 +198,18 @@ function mkvenv()
 
         printf "$venv_name\n" > ".venv"
         chmod 600 .venv
+
+        # if we have a custom pip conf file, then copy it into the conda environment
+        if [[ ! -z "$pip_conf" && -f "$HOME/.config/pip/pip.conf.$pip_conf" ]]; then
+          # assumes that pip.conf.$pip_conf is in ~/.config/pip/ directory
+          # copy that to $CONDA_PREFIX/envs/$venv_name/pip/
+          mkdir -p $CONDA_PREFIX/envs/$venv_name/pip
+          cp $HOME/.config/pip/pip.conf.$pip_conf $CONDA_PREFIX/envs/$venv_name/pip/pip.conf
+        else
+          printf "${BOLD}${RED}"
+          printf "custom pip configuration specified, but $HOME/.config/pip/pip.conf.$pip_conf doesn't exist!\n\n"
+          printf "${NORMAL}"
+        fi
 
         _maybeworkon "$venv_name" "conda"
 
