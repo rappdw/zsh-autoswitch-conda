@@ -176,16 +176,16 @@ function mkvenv()
 
         printf "Creating ${PURPLE}%s${NORMAL} conda environment\n" "$venv_name"
 
-        # Copy parameters variable so that we can mutate it
-        params=("${@[@]}")
-        if [[ -n "$AUTOSWITCH_DEFAULT_PYTHON" && ${params[(I)--python*]} -eq 0 && ${params[(I)--no-default-packages]} -eq 0 ]]; then
-            params+=("python=$AUTOSWITCH_DEFAULT_PYTHON")
-        fi
-
         # parse out the custom pip conf file name if it exists
         zparseopts -D -E -pip:=pip_conf
         if [[ ! -z "$pip_conf" ]]; then
           pip_conf=${pip_conf[-1]}
+        fi
+
+        # Copy parameters variable so that we can mutate it
+        params=("${@[@]}")
+        if [[ -n "$AUTOSWITCH_DEFAULT_PYTHON" && ${params[(I)--python*]} -eq 0 && ${params[(I)--no-default-packages]} -eq 0 ]]; then
+            params+=("python=$AUTOSWITCH_DEFAULT_PYTHON")
         fi
 
         if [[ ${params[(I)--verbose]} -eq 0 ]]; then
