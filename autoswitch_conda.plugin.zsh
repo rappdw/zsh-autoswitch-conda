@@ -203,9 +203,11 @@ function mkvenv()
         if [[ ! -z "$pip_conf" && -f "$HOME/.config/pip/pip.conf.$pip_conf" ]]; then
           # assumes that pip.conf.$pip_conf is in ~/.config/pip/ directory
           # copy that to $CONDA_PREFIX/envs/$venv_name/pip/
-          mkdir -p $CONDA_PREFIX/envs/$venv_name/pip
-          cp $HOME/.config/pip/pip.conf.$pip_conf $CONDA_PREFIX/envs/$venv_name/pip/pip.conf
-        else
+          cp $HOME/.config/pip/pip.conf.$pip_conf $CONDA_PREFIX/envs/$venv_name/pip.conf
+          printf "${BOLD}${GREEN}"
+          printf "using custom pip configuration pip.conf.$pip_conf \n\n"
+          printf "${NORMAL}"
+        elif [[ ! -z "$pip_conf" ]]; then
           printf "${BOLD}${RED}"
           printf "custom pip configuration specified, but $HOME/.config/pip/pip.conf.$pip_conf doesn't exist!\n\n"
           printf "${NORMAL}"
@@ -214,6 +216,8 @@ function mkvenv()
         _maybeworkon "$venv_name" "conda"
 
         install_requirements
+
+        unset pip_conf
     fi
 }
 
